@@ -74,7 +74,8 @@ class BenchmarkMetrics:
     median_e2el_ms: float
     std_e2el_ms: float
     percentiles_e2el_ms: list[tuple[float, float]]
-    tput_user: list[float]
+    tput_user: float
+    tput_gen_user: float
 
 
 async def get_request(
@@ -138,6 +139,7 @@ def calculate_metrics(
     ttfts: list[float] = []
     e2els: list[float] = []
     tput_user: list[float] = []
+    tput_gen_user: list[float] = []
     for i in range(len(outputs)):
         if outputs[i].success:
             output_len = outputs[i].output_tokens
@@ -160,6 +162,8 @@ def calculate_metrics(
                 latency_minus_ttft = outputs[i].latency - outputs[i].ttft
                 tpot = latency_minus_ttft / (output_len - 1)
                 tpots.append(tpot)
+                tput_gen = (output_len - 1) / latency_minus_ttft
+                tput_gen_user.append(tput_gen)
             # Note: if output_len <= 1, we regard tpot as 0 for goodput
             all_tpots.append(tpot)
             itls += outputs[i].itl
@@ -227,7 +231,7 @@ def calculate_metrics(
         percentiles_e2el_ms=[(p, np.percentile(e2els or 0, p) * 1000)
                              for p in selected_percentiles],
         tput_user=np.mean(tput_user or 0),
-    )
+        tput_gen_user=np.mean(tput_gen_user or 0))
     return metrics, actual_output_lens
 
 
@@ -402,6 +406,8 @@ async def benchmark(
                                     metrics.total_token_throughput))
     print("{:<40} {:<10.2f}".format("User throughput (tok/s):",
                                     metrics.tput_user))
+    print("{:<40} {:<10.2f}".format("User generation throughput (tok/s):",
+                                    metrics.tput_gen_user))
 
     result = {
         "duration": benchmark_duration,
@@ -414,6 +420,7 @@ async def benchmark(
         "output_throughput": metrics.output_throughput,
         "total_token_throughput": metrics.total_token_throughput,
         "user_throughput": metrics.tput_user,
+        "user_generation_throughput": metrics.tput_gen_user,
         "input_lens": [output.prompt_len for output in outputs],
         "output_lens": actual_output_lens,
         "ttfts": [output.ttft for output in outputs],
