@@ -349,6 +349,7 @@ class PyExecutor:
         Args:
             id (int): The request id for which to cancel the response
         """
+        print(f"PyExecutor canceled_req_ids.insert({id})")
         self.canceled_req_ids.insert(id)
 
     def shutdown(self):
@@ -1956,6 +1957,7 @@ class PyExecutor:
         for request in self.active_requests:
             req_id = request.py_request_id
             if req_id in self.canceled_req_ids:
+                print(f"PyExecutor _terminate_request({req_id})")
                 self._terminate_request(request)
                 request.finish_by_reason(FinishReason.CANCELLED)
                 request.decoding_iter = request.py_decoding_iter

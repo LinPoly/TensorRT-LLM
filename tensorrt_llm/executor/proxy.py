@@ -148,6 +148,7 @@ class GenerationExecutorProxy(GenerationExecutor):
         # NOTE, it just sends a cancelling request to the request queue, but it
         # may take a while for the request to be cancelled in the worker and
         # send back a finished result.
+        print(f"proxy request_queue.put(CancellingRequest({request_id}))")
         self.request_queue.put(CancellingRequest(request_id))
 
     def dispatch_result_task(self) -> bool:
