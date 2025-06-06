@@ -229,6 +229,7 @@ class GenerationExecutorWorker(GenerationExecutor):
                     f"Request of client_id {client_id} is finished, cannot abort it."
                 )
                 return
+            print(f"engine.cancel_request({request_id})")
             self.engine.cancel_request(request_id)
 
     def _engine_response_callback(self, response: tllm.Response):
@@ -747,6 +748,7 @@ def worker_main(
                 worker_init_status_queue.put(ready_signal)
                 while (req := request_queue.get()) is not None:
                     if isinstance(req, CancellingRequest):
+                        print(f"worker.abort_request({req.id})")
                         worker.abort_request(req.id)
                     elif isinstance(req, GenerationRequest):
                         try:
