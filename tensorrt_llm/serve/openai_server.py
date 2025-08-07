@@ -268,6 +268,9 @@ class OpenAIServer:
             if request.prompt_token_ids is not None:
                 prompt = request.prompt_token_ids
             else:
+                chat_template_kwargs = request.chat_template_kwargs or {}
+                if request.reasoning_effort is not None:
+                    chat_template_kwargs["reasoning_effort"] = request.reasoning_effort
                 prompt: str = apply_chat_template(
                     model_type=self.model_config.model_type,
                     tokenizer=self.tokenizer,
@@ -278,7 +281,7 @@ class OpenAIServer:
                     tools=tool_dicts,
                     documents=request.documents,
                     chat_template=request.chat_template,
-                    chat_template_kwargs=request.chat_template_kwargs or {},
+                    chat_template_kwargs=chat_template_kwargs,
                 )
             prompt = prompt_inputs(prompt)
 
