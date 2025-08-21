@@ -32,8 +32,8 @@ from openai_harmony import (Author, Conversation, DeveloperContent,
 from tensorrt_llm.logger import logger
 
 from .openai_protocol import (ChatCompletionResponseStreamChoice,
-                              ChatCompletionStreamResponse, DeltaMessage,
-                              FunctionCall, ToolCall)
+                              ChatCompletionStreamResponse, DeltaFunctionCall,
+                              DeltaMessage, DeltaToolCall)
 
 
 class HarmonyStreamState:
@@ -104,12 +104,9 @@ class HarmonyStreamState:
             # Process the token
             self.parser.process(token)
 
-            # logger.debug("🔄 Processing token %d (prev_channel=%s, prev_recipient=%s)",
-            #             token, prev_channel, prev_recipient)
+            # print(f"🔄 Processing token {token} (prev_channel={prev_channel}, prev_recipient={prev_recipient})")
 
-            # logger.debug("🔄 After processing token %d: channel=%s, recipient=%s, content_delta=%r",
-            #             token, self.parser.current_channel, self.parser.current_recipient,
-            #             self.parser.last_content_delta)
+            # print(f"🔄 After processing token {token}: channel={self.parser.current_channel}, recipient={self.parser.current_recipient}, content_delta={self.parser.last_content_delta}")
 
             # Detect channel/recipient transitions AFTER processing each token
             channel_changed = prev_channel != self.parser.current_channel
@@ -124,23 +121,20 @@ class HarmonyStreamState:
                         if tool_info["name"] == func_name and tool_info.get(
                                 "active", True):
                             tool_info["active"] = False
-                            logger.debug("Request %s: completed tool call %s",
-                                         self.request_id, tool_id)
+                            # print(f"Request {self.request_id}: completed tool call {tool_id}")
 
                 # Send closing token for previous channel
-                closing_delta = self._create_closing_token_delta()
-                if closing_delta:
-                    deltas.append(closing_delta)
-                    logger.debug(">> Added closing delta: %s", closing_delta)
+                # closing_delta = self._create_closing_token_delta()
+                # if closing_delta:
+                #     deltas.append(closing_delta)
+                # print(f">> Added closing delta: {closing_delta}")
 
                 # Reset channel state for new channel
                 self.channel_started = False
                 self.current_channel_state = None
 
-                logger.debug(
-                    "Request %s: channel transition from %s to %s, recipient from %s to %s",
-                    self.request_id, prev_channel, self.parser.current_channel,
-                    prev_recipient, self.parser.current_recipient)
+                # print(
+                #     f"Request {self.request_id}: channel transition from {prev_channel} to {self.parser.current_channel}, recipient from {prev_recipient} to {self.parser.current_recipient}")
 
             # Process content deltas (only generate if there's actual content)
             if self.parser.last_content_delta:
@@ -148,9 +142,9 @@ class HarmonyStreamState:
                 if delta:
                     deltas.append(delta)
 
-        logger.debug(
-            "Request %s: processed %d tokens (total: %d), generated %d deltas",
-            self.request_id, len(tokens), self.tokens_processed, len(deltas))
+        # print(
+        #     f"Request {self.request_id}: processed {len(tokens)} tokens (total: {self.tokens_processed}), generated {len(deltas)} deltas",
+        # )
         return deltas
 
     def _create_closing_token_delta(self) -> Optional[Dict[str, Any]]:
@@ -222,11 +216,10 @@ class HarmonyStreamState:
                 # Send opening token if this is the first content in this channel
                 if not self.channel_started:
                     self.channel_started = True
-                    logger.debug("Request %s: starting preamble channel",
-                                 self.request_id)
+                    # print(f"Request {self.request_id}: starting preamble channel")
                     return {
-                        "content":
-                        f"<|channel|>commentary<|message|>{self.parser.last_content_delta}",
+                        "content": self.parser.last_content_delta,
+                        # f"<|channel|>commentary<|message|>{self.parser.last_content_delta}",
                         "tool_calls": []
                     }
                 else:
@@ -787,10 +780,10 @@ class HarmonyAdapter:
                             # print(f"DEBUG: Added tool call to list")
                         else:
                             tool_call_parsing_failed = True
-                            print(
-                                f"DEBUG: Tool call not allowed or invalid - tool_call={tool_call}, external_tools={external_tools}"
-                            )
-                            print(f"DEBUG: message: {msg}")
+                            # print(
+                            #     f"DEBUG: Tool call not allowed or invalid - tool_call={tool_call}, external_tools={external_tools}"
+                            # )
+                            # print(f"DEBUG: message: {msg}")
                     else:
                         # print(f"DEBUG: Commentary preamble - recipient={msg_recipient}")
                         # Preamble
@@ -1100,8 +1093,8 @@ class HarmonyAdapter:
             return deltas
         except (HarmonyError, UnicodeDecodeError, ValueError):
             logger.error(
-                "Streaming: Failed to process token batch of %d tokens for request %s",
-                len(tokens), request_id)
+                f"Streaming: Failed to process token batch of {len(tokens)} tokens for request {request_id}",
+            )
             logger.debug("Problematic streaming tokens: %s", tokens)
 
             # Return empty deltas to continue processing
@@ -1185,6 +1178,7 @@ class HarmonyAdapter:
             if "reasoning_content" in harmony_delta:
                 delta_message.reasoning_content = harmony_delta[
                     "reasoning_content"]
+                delta_message.reasoning = harmony_delta["reasoning_content"]
                 delta_message.content = None
                 # tool_calls will use default factory (empty list)
 
@@ -1211,35 +1205,35 @@ class HarmonyAdapter:
                         # First time seeing this tool call - send full info including arguments
                         stream_state.sent_tool_arguments[tool_call_id] = True
 
-                        delta_tool_call = ToolCall(
+                        delta_tool_call = DeltaToolCall(
                             id=tool_call_id,
                             type="function",
                             index=tool_call.get("index", 0),
-                            Fon=FunctionCall(
+                            function=DeltaFunctionCall(
                                 name=tool_call.get("function", {}).get("name"),
                                 arguments=
                                 delta_arguments  # Use the actual delta arguments
                             ))
                     elif stream_state and tool_call_id:
                         # Subsequent calls - send the delta arguments directly
-                        delta_tool_call = ToolCall(
+                        delta_tool_call = DeltaToolCall(
                             id=None,  # null for subsequent calls
                             type="function",
                             index=tool_call.get("index", 0),
-                            Fon=FunctionCall(
+                            function=DeltaFunctionCall(
                                 name=None,  # null for subsequent calls
                                 arguments=
                                 delta_arguments  # Use delta arguments directly
                             ))
                     else:
                         # No stream state - send delta arguments directly
-                        delta_tool_call = ToolCall(
+                        delta_tool_call = DeltaToolCall(
                             id=tool_call_id,
                             type="function",
                             index=tool_call.get("index", 0),
-                            Fon=FunctionCall(name=tool_call.get("function",
-                                                                {}).get("name"),
-                                             arguments=delta_arguments))
+                            function=DeltaFunctionCall(
+                                name=tool_call.get("function", {}).get("name"),
+                                arguments=delta_arguments))
 
                     tool_calls.append(delta_tool_call)
 
@@ -1267,7 +1261,7 @@ class HarmonyAdapter:
                 usage=None)
 
             # Format as streaming response string
-            response_json = stream_response.model_dump_json(exclude_unset=True)
+            response_json = stream_response.model_dump_json(exclude_none=True)
 
             # Handle tool_calls serialization: convert empty list to null for OpenAI compatibility
             if '"tool_calls":[]' in response_json:

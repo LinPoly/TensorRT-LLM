@@ -326,11 +326,23 @@ class FunctionCall(OpenAIBaseModel):
     arguments: str
 
 
+class DeltaFunctionCall(BaseModel):
+    name: Optional[str] = None
+    arguments: Optional[str] = None
+
+
 class ToolCall(OpenAIBaseModel):
     id: str = Field(
         default_factory=lambda: f"chatcmpl-tool-{str(uuid.uuid4().hex)}")
     type: Literal["function"] = "function"
     function: FunctionCall
+
+
+class DeltaToolCall(OpenAIBaseModel):
+    id: Optional[str] = None
+    type: Optional[Literal["function"]] = None
+    index: int
+    function: Optional[DeltaFunctionCall] = None
 
 
 class ChatMessage(OpenAIBaseModel):
@@ -418,7 +430,8 @@ class DeltaMessage(OpenAIBaseModel):
     role: Optional[str] = None
     content: Optional[str] = None
     reasoning_content: Optional[str] = None
-    tool_calls: List[ToolCall] = Field(default_factory=list)
+    reasoning: Optional[str] = None
+    tool_calls: List[DeltaToolCall] = Field(default_factory=list)
 
 
 class ChatCompletionResponseStreamChoice(OpenAIBaseModel):
@@ -486,7 +499,7 @@ class ChatCompletionRequest(OpenAIBaseModel):
                                 ChatCompletionNamedToolChoiceParam]] = "none"
     user: Optional[str] = None
     reasoning_effort: Optional[Literal["low", "medium", "high"]] = Field(
-        default="high",
+        default="low",
         description=("The level of reasoning effort to use. Controls how much "
                      "reasoning is shown in the model's response. Options: "
                      "'low', 'medium', 'high'."),
