@@ -4,6 +4,7 @@ import math
 import tempfile
 from collections import defaultdict
 from dataclasses import dataclass
+from functools import lru_cache
 from io import BytesIO
 from pathlib import Path
 from typing import Any, Coroutine, Dict, List, Optional, Tuple, TypedDict, Union
@@ -778,3 +779,50 @@ def get_cache_salt_id(cache_salt: str) -> int:
             f"cache_salt_id must be in [0, 2**64 - 1], got {cache_salt_id}.")
 
     return cache_salt_id
+
+
+# Adapted from
+# https://github.com/vllm-project/vllm/blob/44b5ce956d3cf28841615a58c1c0873af87bcfe2/vllm/entrypoints/chat_utils.py
+def _load_chat_template(
+    chat_template: Path | str | None,
+    *,
+    is_literal: bool = False,
+) -> str | None:
+    if chat_template is None:
+        return None
+
+    if is_literal:
+        if isinstance(chat_template, Path):
+            raise TypeError(
+                "chat_template is expected to be read directly from its value")
+
+        return chat_template
+
+    try:
+        with open(chat_template) as f:
+            return f.read()
+    except OSError as e:
+        if isinstance(chat_template, Path):
+            raise
+
+        JINJA_CHARS = "{}\n"
+        if not any(c in chat_template for c in JINJA_CHARS):
+            msg = (f"The supplied chat template ({chat_template}) "
+                   f"looks like a file path, but it failed to be "
+                   f"opened. Reason: {e}")
+            raise ValueError(msg) from e
+
+        # If opening a file fails, set chat template to be args to
+        # ensure we decode so our escape are interpreted correctly
+        return _load_chat_template(chat_template, is_literal=True)
+
+
+_cached_load_chat_template = lru_cache(_load_chat_template)
+
+
+def load_chat_template(
+    chat_template: Path | str | None,
+    *,
+    is_literal: bool = False,
+) -> str | None:
+    return _cached_load_chat_template(chat_template, is_literal=is_literal)

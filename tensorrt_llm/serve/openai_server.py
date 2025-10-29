@@ -26,7 +26,8 @@ from tensorrt_llm.executor.postproc_worker import PostprocParams
 from tensorrt_llm.inputs import prompt_inputs
 from tensorrt_llm.inputs.data import TokensPrompt
 from tensorrt_llm.inputs.multimodal import MultimodalServerConfig
-from tensorrt_llm.inputs.utils import ConversationMessage, apply_chat_template
+from tensorrt_llm.inputs.utils import (ConversationMessage, apply_chat_template,
+                                       load_chat_template)
 from tensorrt_llm.llmapi import DisaggregatedParams as LlmDisaggregatedParams
 from tensorrt_llm.llmapi import MultimodalEncoder, tracing
 from tensorrt_llm.llmapi.disagg_utils import (DisaggClusterConfig,
@@ -81,13 +82,15 @@ class OpenAIServer:
                  server_role: Optional[ServerRole],
                  metadata_server_cfg: MetadataServerConfig,
                  disagg_cluster_config: Optional[DisaggClusterConfig] = None,
-                 multimodal_server_config: Optional[MultimodalServerConfig] = None):
+                 multimodal_server_config: Optional[MultimodalServerConfig] = None,
+                 chat_template: Optional[str] = None):
         self.llm = llm
         self.tokenizer = llm.tokenizer
         self.tool_parser = tool_parser
         self.metadata_server = create_metadata_server(metadata_server_cfg)
         self.disagg_cluster_config = disagg_cluster_config
         self.multimodal_server_config = multimodal_server_config
+        self.chat_template = load_chat_template(chat_template)
         self.server_role = server_role
         # Will be set in __call__
         self.binding_addr = None
@@ -510,7 +513,7 @@ class OpenAIServer:
                     mm_placeholder_counts=mm_placeholder_counts,
                     tools=tool_dicts,
                     documents=request.documents,
-                    chat_template=request.chat_template,
+                    chat_template=request.chat_template or self.chat_template,
                     chat_template_kwargs=request.chat_template_kwargs or {},
                 )
             prompt = prompt_inputs(prompt)
