@@ -395,6 +395,20 @@ class SamplingParams:
             strs = [self.stop] if isinstance(self.stop, str) else self.stop
             self._stop_word_ids = [_encode(tokenizer, s, add_special_tokens) for s in strs]
 
+        if (
+            generation_config is not None
+            and (eos_token_id := generation_config.eos_token_id) is not None
+        ):
+            eos_token_ids = (
+                {eos_token_id} if isinstance(eos_token_id, int) else set[int](eos_token_id)
+            )
+            eos_token_ids.discard(self.end_id)
+            stop_token_ids = (
+                set[int](self.stop_token_ids) if self.stop_token_ids is not None else set[int]()
+            )
+
+            stop_token_ids.update(eos_token_ids)
+            self.stop_token_ids = list[int](stop_token_ids)
         return self
 
     def _get_bad_words(self) -> List[List[int]]:
