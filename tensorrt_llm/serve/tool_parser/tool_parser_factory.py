@@ -1,12 +1,14 @@
 from typing import Type
 
 from .base_tool_parser import BaseToolParser
+from .functionary_kanana_tool_parser import FunctionaryV3Llama31ToolParser
 from .qwen3_tool_parser import Qwen3ToolParser
 
 
 class ToolParserFactory:
     parsers: dict[str, Type[BaseToolParser]] = {
         "qwen3": Qwen3ToolParser,
+        "kanana": FunctionaryV3Llama31ToolParser,
     }
 
     @staticmethod

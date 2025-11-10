@@ -68,16 +68,16 @@ class BaseToolParser(ABC):
         results = []
         for act in action:
             name = act.get("name")
+            parameters = act.get("parameters") or act.get("arguments", {})
+            parameters = parameters if isinstance(
+                parameters, str) else json.dumps(parameters, ensure_ascii=False)
             if name and name in tool_indices:
                 results.append(
                     ToolCallItem(
                         tool_index=
                         -1,  # Caller should update this based on the actual tools array called
                         name=name,
-                        parameters=json.dumps(
-                            act.get("parameters") or act.get("arguments", {}),
-                            ensure_ascii=False,
-                        ),
+                        parameters=parameters,
                     ))
             else:
                 logger.warning(
